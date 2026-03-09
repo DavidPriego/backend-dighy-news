@@ -83,6 +83,7 @@ class NewsController
         foreach ($articles as &$article) {
             $article['is_pinned'] = (bool) $article['is_pinned'];
             $article['content_blocks'] = $this->getContentBlocks((int) $article['id']);
+            $article['categories'] = $this->getArticleCategories((int) $article['id']);
         }
 
         return $this->json($response, [
@@ -132,6 +133,7 @@ class NewsController
         $article['is_active'] = (bool) $article['is_active'];
         $article['is_pinned'] = (bool) $article['is_pinned'];
         $article['content_blocks'] = $this->getContentBlocks((int) $article['id']);
+        $article['categories'] = $this->getArticleCategories((int) $article['id']);
 
         return $this->json($response, [
             'success' => true,
@@ -163,10 +165,11 @@ class NewsController
             ], 404);
         }
 
-        // Cargar bloques de contenido
+        // Cargar bloques de contenido y categorías
         $article['is_active'] = (bool) $article['is_active'];
         $article['is_pinned'] = (bool) $article['is_pinned'];
         $article['content_blocks'] = $this->getContentBlocks((int) $article['id']);
+        $article['categories'] = $this->getArticleCategories((int) $article['id']);
 
         return $this->json($response, [
             'success' => true,
@@ -225,6 +228,7 @@ class NewsController
         foreach ($articles as &$article) {
             $article['is_active'] = (bool) $article['is_active'];
             $article['is_pinned'] = (bool) $article['is_pinned'];
+            $article['categories'] = $this->getArticleCategories((int) $article['id']);
         }
 
         return $this->json($response, [
@@ -290,6 +294,11 @@ class NewsController
             // Insertar bloques de contenido si existen
             if (!empty($data['content_blocks']) && is_array($data['content_blocks'])) {
                 $this->insertContentBlocks($articleId, $data['content_blocks']);
+            }
+
+            // Insertar categorías si existen
+            if (!empty($data['categories']) && is_array($data['categories'])) {
+                $this->syncArticleCategories($articleId, $data['categories']);
             }
 
             $this->db->commit();
@@ -371,6 +380,11 @@ class NewsController
                 
                 // Insertar nuevos bloques
                 $this->insertContentBlocks($id, $data['content_blocks']);
+            }
+
+            // Actualizar categorías si se proporcionan
+            if (isset($data['categories']) && is_array($data['categories'])) {
+                $this->syncArticleCategories($id, $data['categories']);
             }
 
             $this->db->commit();
@@ -499,6 +513,51 @@ class NewsController
         }
         
         return $blocks;
+    }
+
+    /**
+     * Obtiene las categorías de un artículo
+     */
+    private function getArticleCategories(int $articleId): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT c.id, c.name, c.slug, c.color
+            FROM category c
+            INNER JOIN news_category nc ON c.id = nc.category_id
+            WHERE nc.news_article_id = :article_id
+            ORDER BY c.name ASC
+        ");
+        $stmt->execute(['article_id' => $articleId]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Sincroniza las categorías de un artículo (elimina las existentes e inserta las nuevas)
+     */
+    private function syncArticleCategories(int $articleId, array $categoryIds): void
+    {
+        // Eliminar categorías existentes
+        $stmt = $this->db->prepare("DELETE FROM news_category WHERE news_article_id = :article_id");
+        $stmt->execute(['article_id' => $articleId]);
+
+        // Insertar nuevas categorías
+        if (!empty($categoryIds)) {
+            $stmt = $this->db->prepare("
+                INSERT INTO news_category (news_article_id, category_id)
+                VALUES (:article_id, :category_id)
+            ");
+
+            foreach ($categoryIds as $categoryId) {
+                // Aceptar tanto ID directo como objeto con id
+                $catId = is_array($categoryId) ? ($categoryId['id'] ?? null) : $categoryId;
+                if ($catId) {
+                    $stmt->execute([
+                        'article_id' => $articleId,
+                        'category_id' => (int) $catId
+                    ]);
+                }
+            }
+        }
     }
 
     /**
