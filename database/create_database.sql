@@ -1,7 +1,6 @@
 -- ============================================
--- DIGHY NEWS SYSTEM - Database Schema v2.1
--- Convención: underscore_number_aware
--- FK pattern: {referenced_table}_id
+-- DIGHY NEWS SYSTEM - Database Schema v3.0
+-- Adaptado para integración con Frontend Vue/Nuxt
 -- ============================================
 
 DROP DATABASE IF EXISTS dighy_news;
@@ -9,34 +8,32 @@ CREATE DATABASE dighy_news CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE dighy_news;
 
 -- ============================================
--- TABLA: content_type
--- Tipos de contenido predefinidos
+-- TABLA: news_settings
+-- Configuración global del módulo de noticias
 -- ============================================
-CREATE TABLE content_type (
-    content_type_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
+CREATE TABLE news_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(100) NOT NULL UNIQUE,
+    setting_value TEXT DEFAULT NULL,
     description VARCHAR(255) DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- Insertar tipos de contenido base
-INSERT INTO content_type (name, description) VALUES
-    ('text', 'Bloque de texto plano o HTML'),
-    ('image', 'URL de imagen'),
-    ('video', 'URL de video (YouTube, Vimeo, etc.)'),
-    ('heading', 'Título o encabezado'),
-    ('quote', 'Cita o blockquote'),
-    ('list', 'Lista de elementos'),
-    ('divider', 'Separador visual'),
-    ('embed', 'Contenido embebido genérico'),
-    ('file', 'Enlace a archivo descargable');
+-- Configuraciones por defecto
+INSERT INTO news_settings (setting_key, setting_value, description) VALUES
+    ('items_per_page', '10', 'Número de noticias por página'),
+    ('show_featured_first', 'true', 'Mostrar noticias destacadas primero'),
+    ('default_layout', 'single', 'Layout por defecto para nuevas noticias'),
+    ('allow_comments', 'false', 'Permitir comentarios en noticias'),
+    ('auto_publish', 'false', 'Publicar automáticamente las noticias');
 
 -- ============================================
--- TABLA: category
--- Categorías predefinidas para evitar errores
+-- TABLA: category (OPCIONAL - para uso futuro)
+-- Categorías predefinidas
 -- ============================================
 CREATE TABLE category (
-    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     slug VARCHAR(100) NOT NULL UNIQUE,
     description VARCHAR(255) DEFAULT NULL,
@@ -56,176 +53,195 @@ INSERT INTO category (name, slug, description, color) VALUES
     ('Empresa', 'empresa', 'Noticias corporativas', '#06B6D4');
 
 -- ============================================
--- TABLA: news
--- Noticias y notificaciones
+-- TABLA: news_articles
+-- Artículos de noticias y actualizaciones
 -- ============================================
-CREATE TABLE news (
-    news_id INT AUTO_INCREMENT PRIMARY KEY,
-    uuid CHAR(36) NOT NULL UNIQUE,
-    type ENUM('news', 'notification') NOT NULL DEFAULT 'news',
+CREATE TABLE news_articles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type ENUM('news', 'update') NOT NULL DEFAULT 'news',
+    title VARCHAR(255) NOT NULL COMMENT 'Título del artículo',
     slug VARCHAR(255) NOT NULL UNIQUE COMMENT 'URL amigable',
-    author_name VARCHAR(100) DEFAULT NULL,
-    author_avatar VARCHAR(500) DEFAULT NULL,
-    thumbnail_url VARCHAR(500) DEFAULT NULL COMMENT 'Imagen principal',
-    thumbnail_alt VARCHAR(255) DEFAULT NULL,
-    is_featured BOOLEAN NOT NULL DEFAULT FALSE,
-    is_published BOOLEAN NOT NULL DEFAULT FALSE,
+    excerpt TEXT DEFAULT NULL COMMENT 'Resumen/descripción corta',
+    layout ENUM('single', 'two_column') NOT NULL DEFAULT 'single' COMMENT 'Tipo de layout',
+    featured_image VARCHAR(500) DEFAULT NULL COMMENT 'Imagen principal',
+    video_url VARCHAR(500) DEFAULT NULL COMMENT 'URL de video',
+    is_pinned BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Noticia destacada/fijada',
+    is_active BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Publicada/visible',
     published_at DATETIME DEFAULT NULL,
+    created_by INT DEFAULT NULL COMMENT 'ID del usuario creador',
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     INDEX idx_type (type),
-    INDEX idx_published (is_published, published_at),
-    INDEX idx_featured (is_featured),
-    INDEX idx_uuid (uuid)
+    INDEX idx_active (is_active, published_at),
+    INDEX idx_pinned (is_pinned),
+    INDEX idx_slug (slug)
 ) ENGINE=InnoDB;
 
 -- ============================================
--- TABLA: news_category (N:M)
--- Relación muchos a muchos entre news y category
+-- TABLA: news_category (N:M) - OPCIONAL
+-- Relación muchos a muchos entre news_articles y category
 -- ============================================
 CREATE TABLE news_category (
-    news_id INT NOT NULL,
+    news_article_id INT NOT NULL,
     category_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    PRIMARY KEY (news_id, category_id),
-    FOREIGN KEY (news_id) REFERENCES news(news_id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES category(category_id) ON DELETE CASCADE
+    PRIMARY KEY (news_article_id, category_id),
+    FOREIGN KEY (news_article_id) REFERENCES news_articles(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES category(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ============================================
--- TABLA: content
--- Bloques de contenido de cada noticia
+-- TABLA: news_content_blocks
+-- Bloques de contenido de cada artículo
 -- ============================================
-CREATE TABLE content (
-    content_id INT AUTO_INCREMENT PRIMARY KEY,
-    news_id INT NOT NULL COMMENT 'FK a news (parent)',
-    content_type_id INT NOT NULL COMMENT 'FK a content_type',
-    sort_order INT NOT NULL DEFAULT 0 COMMENT 'Orden de visualización',
-    title VARCHAR(120) DEFAULT NULL COMMENT 'Auto: primeros 120 chars del content',
-    content TEXT DEFAULT NULL COMMENT 'Texto, URL de imagen, URL de video, etc.',
-    style JSON DEFAULT NULL COMMENT 'Clases Tailwind y estilos',
+CREATE TABLE news_content_blocks (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    news_article_id INT NOT NULL COMMENT 'FK a news_articles',
+    column_position ENUM('main', 'sidebar') NOT NULL DEFAULT 'main' COMMENT 'Posición en layout two_column',
+    block_order INT NOT NULL DEFAULT 0 COMMENT 'Orden de visualización',
+    block_type ENUM('text', 'image', 'video', 'heading', 'quote', 'list', 'divider', 'embed', 'file') NOT NULL DEFAULT 'text',
+    content TEXT DEFAULT NULL COMMENT 'Contenido del bloque',
+    metadata JSON DEFAULT NULL COMMENT 'Datos adicionales (alt, caption, styles, etc.)',
     -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
-    INDEX idx_news_order (news_id, sort_order),
-    FOREIGN KEY (news_id) REFERENCES news(news_id) ON DELETE CASCADE,
-    FOREIGN KEY (content_type_id) REFERENCES content_type(content_type_id) ON DELETE RESTRICT
+    INDEX idx_article_order (news_article_id, column_position, block_order),
+    FOREIGN KEY (news_article_id) REFERENCES news_articles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ============================================
 -- DATOS DE EJEMPLO
 -- ============================================
 
--- Noticia 1: Tipo news
-INSERT INTO news (uuid, type, slug, author_name, is_published, published_at, thumbnail_url) VALUES
-    (UUID(), 'news', 'dighy-lanza-nuevo-proyecto-hidrogeno', 'Alfredo González', TRUE, NOW(), 
-     'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800');
+-- Artículo 1: Tipo news con layout single
+INSERT INTO news_articles (type, title, slug, excerpt, layout, featured_image, is_active, is_pinned, published_at, created_by) VALUES
+    ('news', 
+     'Dighy lanza nuevo proyecto de hidrógeno verde en Almería',
+     'dighy-lanza-nuevo-proyecto-hidrogeno', 
+     'Dighy anuncia su nuevo proyecto de producción de hidrógeno verde en la provincia de Almería con una capacidad inicial de 50 MW.',
+     'single',
+     'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800',
+     TRUE, FALSE, NOW(), 1);
 
-SET @news_1_id = LAST_INSERT_ID();
+SET @article_1_id = LAST_INSERT_ID();
 
--- Asociar categorías a noticia 1
-INSERT INTO news_category (news_id, category_id) VALUES
-    (@news_1_id, 2), -- Hidrógeno Verde
-    (@news_1_id, 4); -- Proyectos
+-- Asociar categorías al artículo 1
+INSERT INTO news_category (news_article_id, category_id) VALUES
+    (@article_1_id, 2), -- Hidrógeno Verde
+    (@article_1_id, 4); -- Proyectos
 
--- Contenido de noticia 1
-INSERT INTO content (news_id, content_type_id, sort_order, content, style) VALUES
-    (@news_1_id, 4, 1, 'Dighy lanza nuevo proyecto de hidrógeno verde en Almería', 
-     '{"container": "mb-6", "text": "text-3xl font-bold text-gray-900"}'),
-    (@news_1_id, 1, 2, 'La empresa Dighy ha anunciado hoy el lanzamiento de su nuevo proyecto de producción de hidrógeno verde, que se ubicará en la provincia de Almería y tendrá una capacidad inicial de 50 MW.', 
-     '{"container": "mb-4", "text": "text-lg text-gray-700 leading-relaxed"}'),
-    (@news_1_id, 2, 3, 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800', 
-     '{"container": "my-6 rounded-lg overflow-hidden", "image": "w-full h-auto"}'),
-    (@news_1_id, 5, 4, 'Este proyecto representa un paso importante hacia la transición energética y la descarbonización de la industria española.',
-     '{"container": "border-l-4 border-green-500 pl-4 my-6", "text": "text-xl italic text-gray-600"}'),
-    (@news_1_id, 1, 5, 'El proyecto contará con una inversión inicial de 200 millones de euros y se espera que genere más de 500 empleos directos e indirectos en la región.',
-     '{"container": "mb-4", "text": "text-base text-gray-700"}');
+-- Contenido del artículo 1
+INSERT INTO news_content_blocks (news_article_id, column_position, block_order, block_type, content, metadata) VALUES
+    (@article_1_id, 'main', 1, 'text', 
+     'La empresa Dighy ha anunciado hoy el lanzamiento de su nuevo proyecto de producción de hidrógeno verde, que se ubicará en la provincia de Almería y tendrá una capacidad inicial de 50 MW.', 
+     '{"classes": "text-lg text-gray-700 leading-relaxed"}'),
+    (@article_1_id, 'main', 2, 'image', 
+     'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800', 
+     '{"alt": "Planta de hidrógeno verde", "caption": "Vista aérea del futuro emplazamiento"}'),
+    (@article_1_id, 'main', 3, 'quote', 
+     'Este proyecto representa un paso importante hacia la transición energética y la descarbonización de la industria española.',
+     '{"author": "Director de Operaciones"}'),
+    (@article_1_id, 'main', 4, 'text', 
+     'El proyecto contará con una inversión inicial de 200 millones de euros y se espera que genere más de 500 empleos directos e indirectos en la región.',
+     NULL);
 
--- Noticia 2: Tipo notification
-INSERT INTO news (uuid, type, slug, author_name, is_published, published_at) VALUES
-    (UUID(), 'notification', 'mantenimiento-programado-portal', 'Sistema', TRUE, NOW());
+-- Artículo 2: Tipo update (antes notification)
+INSERT INTO news_articles (type, title, slug, excerpt, layout, is_active, published_at, created_by) VALUES
+    ('update', 
+     'Mantenimiento programado del portal',
+     'mantenimiento-programado-portal', 
+     'El próximo sábado el portal estará en mantenimiento de 02:00 a 06:00 horas.',
+     'single',
+     TRUE, NOW(), 1);
 
-SET @news_2_id = LAST_INSERT_ID();
+SET @article_2_id = LAST_INSERT_ID();
 
--- Asociar categorías a noticia 2
-INSERT INTO news_category (news_id, category_id) VALUES
-    (@news_2_id, 7); -- Empresa
+-- Asociar categorías al artículo 2
+INSERT INTO news_category (news_article_id, category_id) VALUES
+    (@article_2_id, 7); -- Empresa
 
--- Contenido de noticia 2 (notificación simple)
-INSERT INTO content (news_id, content_type_id, sort_order, content, style) VALUES
-    (@news_2_id, 4, 1, 'Mantenimiento programado del portal', 
-     '{"container": "mb-4", "text": "text-xl font-semibold text-orange-600"}'),
-    (@news_2_id, 1, 2, 'El próximo sábado 8 de marzo de 2026, el portal estará en mantenimiento de 02:00 a 06:00 horas. Disculpen las molestias.', 
-     '{"container": "p-4 bg-orange-50 rounded-lg", "text": "text-base text-orange-800"}');
+-- Contenido del artículo 2 (update simple)
+INSERT INTO news_content_blocks (news_article_id, column_position, block_order, block_type, content, metadata) VALUES
+    (@article_2_id, 'main', 1, 'text', 
+     'El próximo sábado 8 de marzo de 2026, el portal estará en mantenimiento de 02:00 a 06:00 horas. Disculpen las molestias.', 
+     '{"classes": "p-4 bg-orange-50 rounded-lg text-orange-800"}');
 
--- Noticia 3: News con video
-INSERT INTO news (uuid, type, slug, author_name, is_featured, is_published, published_at, thumbnail_url) VALUES
-    (UUID(), 'news', 'webinar-futuro-hidrogeno-espana', 'María López', TRUE, TRUE, DATE_SUB(NOW(), INTERVAL 2 DAY),
-     'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800');
+-- Artículo 3: News con video y layout two_column
+INSERT INTO news_articles (type, title, slug, excerpt, layout, featured_image, video_url, is_active, is_pinned, published_at, created_by) VALUES
+    ('news', 
+     'Webinar: El futuro del hidrógeno en España',
+     'webinar-futuro-hidrogeno-espana', 
+     'Revive nuestro webinar donde expertos del sector analizan las perspectivas del hidrógeno verde en España.',
+     'two_column',
+     'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800',
+     'https://www.youtube.com/embed/dQw4w9WgXcQ',
+     TRUE, TRUE, DATE_SUB(NOW(), INTERVAL 2 DAY), 1);
 
-SET @news_3_id = LAST_INSERT_ID();
+SET @article_3_id = LAST_INSERT_ID();
 
--- Asociar categorías a noticia 3
-INSERT INTO news_category (news_id, category_id) VALUES
-    (@news_3_id, 1), -- Tecnología
-    (@news_3_id, 2), -- Hidrógeno Verde
-    (@news_3_id, 6); -- Eventos
+-- Asociar categorías al artículo 3
+INSERT INTO news_category (news_article_id, category_id) VALUES
+    (@article_3_id, 1), -- Tecnología
+    (@article_3_id, 2), -- Hidrógeno Verde
+    (@article_3_id, 6); -- Eventos
 
--- Contenido de noticia 3 con video
-INSERT INTO content (news_id, content_type_id, sort_order, content, style) VALUES
-    (@news_3_id, 4, 1, 'Webinar: El futuro del hidrógeno en España', 
-     '{"container": "mb-6", "text": "text-4xl font-extrabold text-gray-900"}'),
-    (@news_3_id, 1, 2, 'Revive nuestro webinar donde expertos del sector analizan las perspectivas del hidrógeno verde en España para los próximos 10 años.',
-     '{"container": "mb-6", "text": "text-lg text-gray-600"}'),
-    (@news_3_id, 3, 3, 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-     '{"container": "my-8 aspect-video", "iframe": "w-full h-full rounded-xl shadow-lg"}'),
-    (@news_3_id, 6, 4, '<ul><li>Inversiones previstas hasta 2030</li><li>Marco regulatorio actual</li><li>Casos de éxito internacionales</li><li>Oportunidades para pymes</li></ul>',
-     '{"container": "my-6", "list": "list-disc list-inside space-y-2 text-gray-700"}');
+-- Contenido del artículo 3 con video y dos columnas
+INSERT INTO news_content_blocks (news_article_id, column_position, block_order, block_type, content, metadata) VALUES
+    (@article_3_id, 'main', 1, 'text', 
+     'Revive nuestro webinar donde expertos del sector analizan las perspectivas del hidrógeno verde en España para los próximos 10 años.',
+     '{"classes": "text-lg text-gray-600"}'),
+    (@article_3_id, 'main', 2, 'video', 
+     'https://www.youtube.com/embed/dQw4w9WgXcQ',
+     '{"provider": "youtube", "autoplay": false}'),
+    (@article_3_id, 'sidebar', 1, 'heading', 
+     'Temas tratados',
+     '{"level": 3}'),
+    (@article_3_id, 'sidebar', 2, 'list', 
+     '["Inversiones previstas hasta 2030", "Marco regulatorio actual", "Casos de éxito internacionales", "Oportunidades para pymes"]',
+     '{"style": "bullet"}');
 
 -- ============================================
--- VISTA: news_full
--- Vista con toda la información de una noticia
+-- VISTA: news_articles_full
+-- Vista con información completa de artículos
 -- ============================================
-CREATE VIEW news_full AS
+CREATE VIEW news_articles_full AS
 SELECT 
-    n.news_id,
-    n.uuid,
-    n.type,
-    n.slug,
-    n.author_name,
-    n.author_avatar,
-    n.thumbnail_url,
-    n.thumbnail_alt,
-    n.is_featured,
-    n.is_published,
-    n.published_at,
-    n.created_at,
-    n.updated_at,
-    -- Primer título del contenido
-    (SELECT c.title FROM content c WHERE c.news_id = n.news_id ORDER BY c.sort_order ASC LIMIT 1) AS title,
+    a.id,
+    a.type,
+    a.title,
+    a.slug,
+    a.excerpt,
+    a.layout,
+    a.featured_image,
+    a.video_url,
+    a.is_pinned,
+    a.is_active,
+    a.published_at,
+    a.created_by,
+    a.created_at,
+    a.updated_at,
     -- Categorías como JSON array
-    (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', cat.category_id, 'name', cat.name, 'slug', cat.slug, 'color', cat.color))
+    (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', cat.id, 'name', cat.name, 'slug', cat.slug, 'color', cat.color))
      FROM news_category nc
-     JOIN category cat ON nc.category_id = cat.category_id
-     WHERE nc.news_id = n.news_id) AS categories,
-    -- Calcular tiempo de lectura (palabras / 200 wpm)
-    (SELECT CEIL(SUM(LENGTH(c.content) - LENGTH(REPLACE(c.content, ' ', '')) + 1) / 200)
-     FROM content c WHERE c.news_id = n.news_id AND c.content_type_id = 1) AS read_time_minutes
-FROM news n;
+     JOIN category cat ON nc.category_id = cat.id
+     WHERE nc.news_article_id = a.id) AS categories,
+    -- Número de bloques de contenido
+    (SELECT COUNT(*) FROM news_content_blocks cb WHERE cb.news_article_id = a.id) AS content_blocks_count
+FROM news_articles a;
 
 -- ============================================
 -- INFORMACIÓN DEL ESQUEMA
 -- ============================================
-SELECT '✅ Base de datos dighy_news v2.1 (underscore_number_aware) creada correctamente' AS status;
+SELECT '✅ Base de datos dighy_news v3.0 creada correctamente' AS status;
 SELECT 'Tablas creadas:' AS info;
 SHOW TABLES;
 SELECT '' AS '';
-SELECT 'Tipos de contenido disponibles:' AS info;
-SELECT content_type_id, name, description FROM content_type;
+SELECT 'Configuración actual:' AS info;
+SELECT setting_key, setting_value FROM news_settings;
 SELECT '' AS '';
-SELECT 'Categorías disponibles:' AS info;
-SELECT category_id, name, slug, color FROM category;
+SELECT 'Artículos de ejemplo:' AS info;
+SELECT id, type, title, is_active, is_pinned FROM news_articles;
