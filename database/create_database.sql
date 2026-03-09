@@ -240,7 +240,7 @@ SELECT 'Tablas creadas:' AS info;
 SHOW TABLES;
 SELECT '' AS '';
 SELECT 'Configuración actual:' AS info;
-SELECT setting_key, setting_value FROM news_settings;
+SELECT id, section_enabled, max_items_home, default_layout FROM news_settings;
 SELECT '' AS '';
 SELECT 'Artículos de ejemplo:' AS info;
 SELECT id, type, title, is_active, is_pinned FROM news_articles;
