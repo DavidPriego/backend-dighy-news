@@ -58,7 +58,7 @@ class NewsController
         // Obtener noticias activas ordenadas por destacadas y fecha
         $stmt = $this->db->prepare("
             SELECT 
-                id, type, title, slug, excerpt, layout, 
+                id, type, title, slug, excerpt, 
                 featured_image, video_url, is_pinned, 
                 published_at, created_at
             FROM news_articles
@@ -164,7 +164,7 @@ class NewsController
         // Obtener artículos
         $sql = "
             SELECT 
-                id, type, title, slug, excerpt, layout, 
+                id, type, title, slug, excerpt, 
                 featured_image, video_url, is_active, is_pinned, 
                 published_at, created_by, created_at, updated_at
             FROM news_articles 
@@ -228,9 +228,9 @@ class NewsController
             // Insertar artículo
             $stmt = $this->db->prepare("
                 INSERT INTO news_articles 
-                (type, title, slug, excerpt, layout, featured_image, video_url, is_active, is_pinned, published_at, created_by)
+                (type, title, slug, excerpt, featured_image, video_url, is_active, is_pinned, published_at, created_by)
                 VALUES 
-                (:type, :title, :slug, :excerpt, :layout, :featured_image, :video_url, :is_active, :is_pinned, :published_at, :created_by)
+                (:type, :title, :slug, :excerpt, :featured_image, :video_url, :is_active, :is_pinned, :published_at, :created_by)
             ");
 
             $stmt->execute([
@@ -238,7 +238,6 @@ class NewsController
                 'title' => $data['title'],
                 'slug' => $slug,
                 'excerpt' => $data['excerpt'] ?? null,
-                'layout' => $data['layout'] ?? 'single',
                 'featured_image' => $data['featured_image'] ?? null,
                 'video_url' => $data['video_url'] ?? null,
                 'is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1,
@@ -300,7 +299,7 @@ class NewsController
         try {
             // Campos permitidos para actualizar
             $allowedFields = [
-                'type', 'title', 'excerpt', 'layout', 
+                'type', 'title', 'excerpt', 
                 'featured_image', 'video_url', 'is_active', 
                 'is_pinned', 'published_at'
             ];
@@ -437,7 +436,7 @@ class NewsController
     private function getContentBlocks(int $articleId): array
     {
         $stmt = $this->db->prepare("
-            SELECT id, column_position, block_type, content, metadata, block_order
+            SELECT id, block_type, content, metadata, block_order
             FROM news_content_blocks 
             WHERE news_article_id = :article_id 
             ORDER BY block_order ASC
@@ -465,9 +464,9 @@ class NewsController
     {
         $stmt = $this->db->prepare("
             INSERT INTO news_content_blocks 
-            (news_article_id, column_position, block_type, content, metadata, block_order)
+            (news_article_id, block_type, content, metadata, block_order)
             VALUES 
-            (:news_article_id, :column_position, :block_type, :content, :metadata, :block_order)
+            (:news_article_id, :block_type, :content, :metadata, :block_order)
         ");
 
         foreach ($blocks as $index => $block) {
@@ -478,7 +477,6 @@ class NewsController
             
             $stmt->execute([
                 'news_article_id' => $articleId,
-                'column_position' => $block['column_position'] ?? 'main',
                 'block_type' => $block['block_type'] ?? 'text',
                 'content' => $block['content'] ?? '',
                 'metadata' => $metadata ? json_encode($metadata) : null,

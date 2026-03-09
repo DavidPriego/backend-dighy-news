@@ -17,15 +17,14 @@ CREATE TABLE news_settings (
     max_items_home INT NOT NULL DEFAULT 5 COMMENT 'Máximo de noticias en home',
     allow_videos BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Permitir videos',
     allow_images BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Permitir imágenes',
-    default_layout ENUM('single', 'two_column') NOT NULL DEFAULT 'single',
     updated_by INT DEFAULT NULL COMMENT 'Usuario que actualizó',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- Configuración por defecto
-INSERT INTO news_settings (section_enabled, max_items_home, allow_videos, allow_images, default_layout) VALUES
-    (TRUE, 5, TRUE, TRUE, 'single');
+INSERT INTO news_settings (section_enabled, max_items_home, allow_videos, allow_images) VALUES
+    (TRUE, 5, TRUE, TRUE);
 
 -- ============================================
 -- TABLA: category (OPCIONAL - para uso futuro)
@@ -61,7 +60,6 @@ CREATE TABLE news_articles (
     title VARCHAR(255) NOT NULL COMMENT 'Título del artículo',
     slug VARCHAR(255) NOT NULL UNIQUE COMMENT 'URL amigable',
     excerpt TEXT DEFAULT NULL COMMENT 'Resumen/descripción corta',
-    layout ENUM('single', 'two_column') NOT NULL DEFAULT 'single' COMMENT 'Tipo de layout',
     featured_image VARCHAR(500) DEFAULT NULL COMMENT 'Imagen principal',
     video_url VARCHAR(500) DEFAULT NULL COMMENT 'URL de video',
     is_pinned BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Noticia destacada/fijada',
@@ -99,7 +97,6 @@ CREATE TABLE news_category (
 CREATE TABLE news_content_blocks (
     id INT AUTO_INCREMENT PRIMARY KEY,
     news_article_id INT NOT NULL COMMENT 'FK a news_articles',
-    column_position ENUM('main', 'sidebar') NOT NULL DEFAULT 'main' COMMENT 'Posición en layout two_column',
     block_order INT NOT NULL DEFAULT 0 COMMENT 'Orden de visualización',
     block_type ENUM('text', 'image', 'video', 'heading', 'quote', 'list', 'divider', 'embed', 'file') NOT NULL DEFAULT 'text',
     content TEXT DEFAULT NULL COMMENT 'Contenido del bloque',
@@ -108,7 +105,7 @@ CREATE TABLE news_content_blocks (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
-    INDEX idx_article_order (news_article_id, column_position, block_order),
+    INDEX idx_article_order (news_article_id, block_order),
     FOREIGN KEY (news_article_id) REFERENCES news_articles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
@@ -116,13 +113,12 @@ CREATE TABLE news_content_blocks (
 -- DATOS DE EJEMPLO
 -- ============================================
 
--- Artículo 1: Tipo news con layout single
-INSERT INTO news_articles (type, title, slug, excerpt, layout, featured_image, is_active, is_pinned, published_at, created_by) VALUES
+-- Artículo 1: Tipo news
+INSERT INTO news_articles (type, title, slug, excerpt, featured_image, is_active, is_pinned, published_at, created_by) VALUES
     ('news', 
      'Dighy lanza nuevo proyecto de hidrógeno verde en Almería',
      'dighy-lanza-nuevo-proyecto-hidrogeno', 
      'Dighy anuncia su nuevo proyecto de producción de hidrógeno verde en la provincia de Almería con una capacidad inicial de 50 MW.',
-     'single',
      'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800',
      TRUE, FALSE, NOW(), 1);
 
@@ -134,27 +130,26 @@ INSERT INTO news_category (news_article_id, category_id) VALUES
     (@article_1_id, 4); -- Proyectos
 
 -- Contenido del artículo 1
-INSERT INTO news_content_blocks (news_article_id, column_position, block_order, block_type, content, metadata) VALUES
-    (@article_1_id, 'main', 1, 'text', 
+INSERT INTO news_content_blocks (news_article_id, block_order, block_type, content, metadata) VALUES
+    (@article_1_id, 1, 'text', 
      'La empresa Dighy ha anunciado hoy el lanzamiento de su nuevo proyecto de producción de hidrógeno verde, que se ubicará en la provincia de Almería y tendrá una capacidad inicial de 50 MW.', 
      '{"classes": "text-lg text-gray-700 leading-relaxed"}'),
-    (@article_1_id, 'main', 2, 'image', 
+    (@article_1_id, 2, 'image', 
      'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800', 
      '{"alt": "Planta de hidrógeno verde", "caption": "Vista aérea del futuro emplazamiento"}'),
-    (@article_1_id, 'main', 3, 'quote', 
+    (@article_1_id, 3, 'quote', 
      'Este proyecto representa un paso importante hacia la transición energética y la descarbonización de la industria española.',
      '{"author": "Director de Operaciones"}'),
-    (@article_1_id, 'main', 4, 'text', 
+    (@article_1_id, 4, 'text', 
      'El proyecto contará con una inversión inicial de 200 millones de euros y se espera que genere más de 500 empleos directos e indirectos en la región.',
      NULL);
 
--- Artículo 2: Tipo update (antes notification)
-INSERT INTO news_articles (type, title, slug, excerpt, layout, is_active, published_at, created_by) VALUES
+-- Artículo 2: Tipo update
+INSERT INTO news_articles (type, title, slug, excerpt, is_active, published_at, created_by) VALUES
     ('update', 
      'Mantenimiento programado del portal',
      'mantenimiento-programado-portal', 
      'El próximo sábado el portal estará en mantenimiento de 02:00 a 06:00 horas.',
-     'single',
      TRUE, NOW(), 1);
 
 SET @article_2_id = LAST_INSERT_ID();
@@ -164,18 +159,17 @@ INSERT INTO news_category (news_article_id, category_id) VALUES
     (@article_2_id, 7); -- Empresa
 
 -- Contenido del artículo 2 (update simple)
-INSERT INTO news_content_blocks (news_article_id, column_position, block_order, block_type, content, metadata) VALUES
-    (@article_2_id, 'main', 1, 'text', 
+INSERT INTO news_content_blocks (news_article_id, block_order, block_type, content, metadata) VALUES
+    (@article_2_id, 1, 'text', 
      'El próximo sábado 8 de marzo de 2026, el portal estará en mantenimiento de 02:00 a 06:00 horas. Disculpen las molestias.', 
      '{"classes": "p-4 bg-orange-50 rounded-lg text-orange-800"}');
 
--- Artículo 3: News con video y layout two_column
-INSERT INTO news_articles (type, title, slug, excerpt, layout, featured_image, video_url, is_active, is_pinned, published_at, created_by) VALUES
+-- Artículo 3: News con video
+INSERT INTO news_articles (type, title, slug, excerpt, featured_image, video_url, is_active, is_pinned, published_at, created_by) VALUES
     ('news', 
      'Webinar: El futuro del hidrógeno en España',
      'webinar-futuro-hidrogeno-espana', 
      'Revive nuestro webinar donde expertos del sector analizan las perspectivas del hidrógeno verde en España.',
-     'two_column',
      'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800',
      'https://www.youtube.com/embed/dQw4w9WgXcQ',
      TRUE, TRUE, DATE_SUB(NOW(), INTERVAL 2 DAY), 1);
@@ -188,18 +182,18 @@ INSERT INTO news_category (news_article_id, category_id) VALUES
     (@article_3_id, 2), -- Hidrógeno Verde
     (@article_3_id, 6); -- Eventos
 
--- Contenido del artículo 3 con video y dos columnas
-INSERT INTO news_content_blocks (news_article_id, column_position, block_order, block_type, content, metadata) VALUES
-    (@article_3_id, 'main', 1, 'text', 
+-- Contenido del artículo 3 con video
+INSERT INTO news_content_blocks (news_article_id, block_order, block_type, content, metadata) VALUES
+    (@article_3_id, 1, 'text', 
      'Revive nuestro webinar donde expertos del sector analizan las perspectivas del hidrógeno verde en España para los próximos 10 años.',
      '{"classes": "text-lg text-gray-600"}'),
-    (@article_3_id, 'main', 2, 'video', 
+    (@article_3_id, 2, 'video', 
      'https://www.youtube.com/embed/dQw4w9WgXcQ',
      '{"provider": "youtube", "autoplay": false}'),
-    (@article_3_id, 'sidebar', 1, 'heading', 
+    (@article_3_id, 3, 'heading', 
      'Temas tratados',
      '{"level": 3}'),
-    (@article_3_id, 'sidebar', 2, 'list', 
+    (@article_3_id, 4, 'list', 
      '["Inversiones previstas hasta 2030", "Marco regulatorio actual", "Casos de éxito internacionales", "Oportunidades para pymes"]',
      '{"style": "bullet"}');
 
@@ -214,7 +208,6 @@ SELECT
     a.title,
     a.slug,
     a.excerpt,
-    a.layout,
     a.featured_image,
     a.video_url,
     a.is_pinned,
@@ -240,7 +233,7 @@ SELECT 'Tablas creadas:' AS info;
 SHOW TABLES;
 SELECT '' AS '';
 SELECT 'Configuración actual:' AS info;
-SELECT id, section_enabled, max_items_home, default_layout FROM news_settings;
+SELECT id, section_enabled, max_items_home, allow_videos, allow_images FROM news_settings;
 SELECT '' AS '';
 SELECT 'Artículos de ejemplo:' AS info;
 SELECT id, type, title, is_active, is_pinned FROM news_articles;

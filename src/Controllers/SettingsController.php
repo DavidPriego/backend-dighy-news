@@ -71,8 +71,7 @@ class SettingsController
             'section_enabled',
             'max_items_home',
             'allow_videos',
-            'allow_images',
-            'default_layout'
+            'allow_images'
         ];
         
         $updates = [];
@@ -156,7 +155,6 @@ class SettingsController
                 'max_items_home' => 5,
                 'allow_videos' => true,
                 'allow_images' => true,
-                'default_layout' => 'single',
                 'updated_at' => null,
                 'updated_by' => null
             ];
