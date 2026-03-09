@@ -170,7 +170,94 @@ curl http://localhost:8080/api/news
 curl http://localhost:8080/api/news/settings
 ```
 
-## 📋 TODO
+## � Integración con Frontend (Vue.js / Nuxt)
+
+### Requisitos Previos
+
+- **PHP 8.1+** con extensiones: `pdo_mysql`, `mbstring`, `json`
+- **Composer** (gestor de dependencias PHP)
+- **MySQL 8.0+** o MariaDB 10.5+
+
+### Guía de Instalación Paso a Paso
+
+```bash
+# 1. Clonar el repositorio
+git clone <url-del-repo> backend-dighy-news
+cd backend-dighy-news
+
+# 2. Instalar dependencias PHP
+composer install
+
+# 3. Configurar variables de entorno
+cp .env.example .env
+
+# 4. Editar .env con tus credenciales de MySQL
+nano .env   # o usa tu editor preferido
+```
+
+```bash
+# 5. Crear la base de datos (ejecuta el SQL)
+mysql -u root -p < database/create_database.sql
+
+# 6. Iniciar el servidor de desarrollo
+php -S localhost:8080 -t public
+```
+
+### Verificar que funciona
+
+```bash
+# Debería devolver {"status":"ok",...}
+curl http://localhost:8080/health
+```
+
+### Configuración en Nuxt 3
+
+En tu proyecto Nuxt, configura el baseURL de la API:
+
+**`nuxt.config.ts`:**
+```typescript
+export default defineNuxtConfig({
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.API_BASE_URL || 'http://localhost:8080'
+    }
+  }
+})
+```
+
+**Ejemplo de composable para consumir la API:**
+
+```typescript
+// composables/useNewsApi.ts
+export const useNewsApi = () => {
+  const config = useRuntimeConfig()
+  const baseURL = config.public.apiBase
+
+  const getNews = () => useFetch(`${baseURL}/api/news`)
+  const getNewsById = (id: string) => useFetch(`${baseURL}/api/news/${id}`)
+  const getSettings = () => useFetch(`${baseURL}/api/news/settings`)
+
+  return { getNews, getNewsById, getSettings }
+}
+```
+
+### Puertos por defecto
+
+| Servicio | Puerto | URL |
+|----------|--------|-----|
+| Backend PHP | 8080 | http://localhost:8080 |
+| Frontend Nuxt | 3000 | http://localhost:3000 |
+
+### Troubleshooting
+
+| Problema | Solución |
+|----------|----------|
+| Error CORS | Verifica que `CORS_ORIGINS` en `.env` incluya la URL de tu frontend |
+| Error conexión BD | Verifica credenciales en `.env` y que MySQL esté corriendo |
+| Error "Class not found" | Ejecuta `composer dump-autoload` |
+| Puerto 8080 ocupado | Usa otro puerto: `php -S localhost:8081 -t public` |
+
+## �📋 TODO
 
 - [ ] Agregar autenticación JWT
 - [ ] Validación de datos más robusta
