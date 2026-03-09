@@ -98,7 +98,7 @@ CREATE TABLE news_content_blocks (
     id INT AUTO_INCREMENT PRIMARY KEY,
     news_article_id INT NOT NULL COMMENT 'FK a news_articles',
     block_order INT NOT NULL DEFAULT 0 COMMENT 'Orden de visualización',
-    block_type ENUM('text', 'image', 'video', 'heading', 'quote', 'list', 'divider', 'embed', 'file') NOT NULL DEFAULT 'text',
+    block_type ENUM('text', 'image', 'video', 'heading', 'quote', 'list', 'divider', 'embed', 'file','link') NOT NULL DEFAULT 'text',
     content TEXT DEFAULT NULL COMMENT 'Contenido del bloque',
     metadata JSON DEFAULT NULL COMMENT 'Datos adicionales (alt, caption, styles, etc.)',
     -- Timestamps
