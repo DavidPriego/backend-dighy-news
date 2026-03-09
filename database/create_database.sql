@@ -13,20 +13,19 @@ USE dighy_news;
 -- ============================================
 CREATE TABLE news_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    setting_key VARCHAR(100) NOT NULL UNIQUE,
-    setting_value TEXT DEFAULT NULL,
-    description VARCHAR(255) DEFAULT NULL,
+    section_enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Sección de noticias activa',
+    max_items_home INT NOT NULL DEFAULT 5 COMMENT 'Máximo de noticias en home',
+    allow_videos BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Permitir videos',
+    allow_images BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Permitir imágenes',
+    default_layout ENUM('single', 'two_column') NOT NULL DEFAULT 'single',
+    updated_by INT DEFAULT NULL COMMENT 'Usuario que actualizó',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- Configuraciones por defecto
-INSERT INTO news_settings (setting_key, setting_value, description) VALUES
-    ('items_per_page', '10', 'Número de noticias por página'),
-    ('show_featured_first', 'true', 'Mostrar noticias destacadas primero'),
-    ('default_layout', 'single', 'Layout por defecto para nuevas noticias'),
-    ('allow_comments', 'false', 'Permitir comentarios en noticias'),
-    ('auto_publish', 'false', 'Publicar automáticamente las noticias');
+-- Configuración por defecto
+INSERT INTO news_settings (section_enabled, max_items_home, allow_videos, allow_images, default_layout) VALUES
+    (TRUE, 5, TRUE, TRUE, 'single');
 
 -- ============================================
 -- TABLA: category (OPCIONAL - para uso futuro)

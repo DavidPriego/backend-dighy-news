@@ -323,7 +323,7 @@ class NewsController
             // Actualizar bloques de contenido si se proporcionan
             if (isset($data['content_blocks']) && is_array($data['content_blocks'])) {
                 // Eliminar bloques existentes
-                $stmt = $this->db->prepare("DELETE FROM news_content_blocks WHERE article_id = :article_id");
+                $stmt = $this->db->prepare("DELETE FROM news_content_blocks WHERE news_article_id = :article_id");
                 $stmt->execute(['article_id' => $id]);
                 
                 // Insertar nuevos bloques
@@ -437,19 +437,22 @@ class NewsController
     private function getContentBlocks(int $articleId): array
     {
         $stmt = $this->db->prepare("
-            SELECT id, column_position, block_type, content, metadata, sort_order
+            SELECT id, column_position, block_type, content, metadata, block_order
             FROM news_content_blocks 
-            WHERE article_id = :article_id 
-            ORDER BY sort_order ASC
+            WHERE news_article_id = :article_id 
+            ORDER BY block_order ASC
         ");
         $stmt->execute(['article_id' => $articleId]);
         $blocks = $stmt->fetchAll();
         
-        // Decodificar meta_data JSON
+        // Transformar campos para compatibilidad con frontend
         foreach ($blocks as &$block) {
-            if ($block['metadata']) {
-                $block['meta_data'] = json_decode($block['metadata'], true);
-            }
+            // Renombrar metadata → meta_data para el frontend
+            $block['meta_data'] = $block['metadata'] ? json_decode($block['metadata'], true) : null;
+            unset($block['metadata']);
+            // Renombrar block_order → sort_order para el frontend
+            $block['sort_order'] = $block['block_order'];
+            unset($block['block_order']);
         }
         
         return $blocks;
@@ -462,19 +465,24 @@ class NewsController
     {
         $stmt = $this->db->prepare("
             INSERT INTO news_content_blocks 
-            (article_id, column_position, block_type, content, metadata, sort_order)
+            (news_article_id, column_position, block_type, content, metadata, block_order)
             VALUES 
-            (:article_id, :column_position, :block_type, :content, :metadata, :sort_order)
+            (:news_article_id, :column_position, :block_type, :content, :metadata, :block_order)
         ");
 
         foreach ($blocks as $index => $block) {
+            // Aceptar tanto meta_data (frontend) como metadata
+            $metadata = $block['meta_data'] ?? $block['metadata'] ?? null;
+            // Aceptar tanto sort_order (frontend) como block_order
+            $blockOrder = $block['sort_order'] ?? $block['block_order'] ?? $index;
+            
             $stmt->execute([
-                'article_id' => $articleId,
+                'news_article_id' => $articleId,
                 'column_position' => $block['column_position'] ?? 'main',
                 'block_type' => $block['block_type'] ?? 'text',
                 'content' => $block['content'] ?? '',
-                'metadata' => isset($block['metadata']) ? json_encode($block['metadata']) : null,
-                'sort_order' => $block['sort_order'] ?? $index
+                'metadata' => $metadata ? json_encode($metadata) : null,
+                'block_order' => $blockOrder
             ]);
         }
     }
