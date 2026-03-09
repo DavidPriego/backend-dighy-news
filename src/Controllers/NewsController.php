@@ -1,15 +1,23 @@
 <?php
 /**
- * NewsController - CRUD de Noticias y Actualizaciones
+ * NewsController - CRUD de Noticias, Actualizaciones y Categorías
  * 
- * Endpoints:
+ * Endpoints Noticias:
  *   GET    /api/news           - Lista noticias activas (público)
  *   GET    /api/news/{id}      - Detalle de noticia (público)
  *   GET    /api/admin/news     - Lista TODAS las noticias (admin)
+ *   GET    /api/admin/news/{id} - Detalle de noticia (admin)
  *   POST   /api/admin/news     - Crear noticia (admin)
  *   PUT    /api/admin/news/{id} - Actualizar noticia (admin)
  *   DELETE /api/admin/news/{id} - Eliminar noticia (admin)
  *   PATCH  /api/admin/news/{id}/toggle - Activar/desactivar (admin)
+ * 
+ * Endpoints Categorías:
+ *   GET    /api/categories        - Lista categorías activas (público)
+ *   GET    /api/admin/categories  - Lista TODAS las categorías (admin)
+ *   POST   /api/admin/categories  - Crear categoría (admin)
+ *   PUT    /api/admin/categories/{id} - Actualizar categoría (admin)
+ *   DELETE /api/admin/categories/{id} - Eliminar categoría (admin)
  */
 
 namespace Dighy\News\Controllers;
@@ -564,6 +572,229 @@ class NewsController
     private function slugExists(string $slug): bool
     {
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM news_articles WHERE slug = :slug");
+        $stmt->execute(['slug' => $slug]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    // =========================================================================
+    // ENDPOINTS CATEGORÍAS
+    // =========================================================================
+
+    /**
+     * GET /api/categories
+     * Lista categorías activas (público)
+     */
+    public function listCategories(Request $request, Response $response): Response
+    {
+        $stmt = $this->db->query("
+            SELECT id, name, slug, description, color
+            FROM category
+            WHERE is_active = 1
+            ORDER BY name ASC
+        ");
+        $categories = $stmt->fetchAll();
+
+        return $this->json($response, [
+            'success' => true,
+            'data' => $categories
+        ]);
+    }
+
+    /**
+     * GET /api/admin/categories
+     * Lista TODAS las categorías (admin)
+     */
+    public function listAllCategories(Request $request, Response $response): Response
+    {
+        $stmt = $this->db->query("
+            SELECT id, name, slug, description, color, is_active, created_at
+            FROM category
+            ORDER BY name ASC
+        ");
+        $categories = $stmt->fetchAll();
+
+        // Convertir booleanos
+        foreach ($categories as &$cat) {
+            $cat['is_active'] = (bool) $cat['is_active'];
+        }
+
+        return $this->json($response, [
+            'success' => true,
+            'data' => $categories
+        ]);
+    }
+
+    /**
+     * POST /api/admin/categories
+     * Crear nueva categoría
+     */
+    public function createCategory(Request $request, Response $response): Response
+    {
+        $data = $request->getParsedBody();
+
+        if (empty($data['name'])) {
+            return $this->json($response, [
+                'success' => false,
+                'error' => 'Validation Error',
+                'message' => 'El nombre es requerido'
+            ], 422);
+        }
+
+        // Generar slug
+        $slug = $this->generateCategorySlug($data['name']);
+
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO category (name, slug, description, color, is_active)
+                VALUES (:name, :slug, :description, :color, :is_active)
+            ");
+
+            $stmt->execute([
+                'name' => $data['name'],
+                'slug' => $slug,
+                'description' => $data['description'] ?? null,
+                'color' => $data['color'] ?? '#3B82F6',
+                'is_active' => isset($data['is_active']) ? (int) $data['is_active'] : 1
+            ]);
+
+            $categoryId = (int) $this->db->lastInsertId();
+
+            return $this->json($response, [
+                'success' => true,
+                'message' => 'Categoría creada exitosamente',
+                'data' => [
+                    'id' => $categoryId,
+                    'slug' => $slug
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            return $this->json($response, [
+                'success' => false,
+                'error' => 'Database Error',
+                'message' => $_ENV['APP_DEBUG'] === 'true' ? $e->getMessage() : 'Error al crear la categoría'
+            ], 500);
+        }
+    }
+
+    /**
+     * PUT /api/admin/categories/{id}
+     * Actualizar categoría
+     */
+    public function updateCategory(Request $request, Response $response, array $args): Response
+    {
+        $id = (int) $args['id'];
+        $data = $request->getParsedBody();
+
+        // Verificar que existe
+        $stmt = $this->db->prepare("SELECT id FROM category WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+        if (!$stmt->fetch()) {
+            return $this->json($response, [
+                'success' => false,
+                'error' => 'Not Found',
+                'message' => 'Categoría no encontrada'
+            ], 404);
+        }
+
+        $allowedFields = ['name', 'description', 'color', 'is_active'];
+        $updates = [];
+        $params = ['id' => $id];
+
+        foreach ($allowedFields as $field) {
+            if (array_key_exists($field, $data)) {
+                $updates[] = "{$field} = :{$field}";
+                if ($field === 'is_active') {
+                    $params[$field] = (int) $data[$field];
+                } else {
+                    $params[$field] = $data[$field];
+                }
+            }
+        }
+
+        if (empty($updates)) {
+            return $this->json($response, [
+                'success' => false,
+                'error' => 'Validation Error',
+                'message' => 'No se proporcionaron campos para actualizar'
+            ], 422);
+        }
+
+        try {
+            $sql = "UPDATE category SET " . implode(', ', $updates) . " WHERE id = :id";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+
+            return $this->json($response, [
+                'success' => true,
+                'message' => 'Categoría actualizada exitosamente'
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->json($response, [
+                'success' => false,
+                'error' => 'Database Error',
+                'message' => $_ENV['APP_DEBUG'] === 'true' ? $e->getMessage() : 'Error al actualizar'
+            ], 500);
+        }
+    }
+
+    /**
+     * DELETE /api/admin/categories/{id}
+     * Eliminar categoría
+     */
+    public function deleteCategory(Request $request, Response $response, array $args): Response
+    {
+        $id = (int) $args['id'];
+
+        $stmt = $this->db->prepare("DELETE FROM category WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+
+        if ($stmt->rowCount() === 0) {
+            return $this->json($response, [
+                'success' => false,
+                'error' => 'Not Found',
+                'message' => 'Categoría no encontrada'
+            ], 404);
+        }
+
+        return $this->json($response, [
+            'success' => true,
+            'message' => 'Categoría eliminada exitosamente'
+        ]);
+    }
+
+    /**
+     * Genera un slug único para categorías
+     */
+    private function generateCategorySlug(string $name): string
+    {
+        $slug = mb_strtolower($name, 'UTF-8');
+        $slug = str_replace(
+            ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü'],
+            ['a', 'e', 'i', 'o', 'u', 'n', 'u'],
+            $slug
+        );
+        $slug = preg_replace('/[^a-z0-9\s-]/', '', $slug);
+        $slug = preg_replace('/[\s_]+/', '-', $slug);
+        $slug = preg_replace('/-+/', '-', $slug);
+        $slug = trim($slug, '-');
+
+        $baseSlug = $slug;
+        $counter = 1;
+        while ($this->categorySlugExists($slug)) {
+            $slug = $baseSlug . '-' . $counter++;
+        }
+
+        return $slug;
+    }
+
+    /**
+     * Verifica si un slug de categoría ya existe
+     */
+    private function categorySlugExists(string $slug): bool
+    {
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM category WHERE slug = :slug");
         $stmt->execute(['slug' => $slug]);
         return (int) $stmt->fetchColumn() > 0;
     }

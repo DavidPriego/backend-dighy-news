@@ -57,6 +57,9 @@ $app->group('/api', function (RouteCollectorProxy $group) {
     
     // Obtener detalle de noticia
     $group->get('/news/{id}', [NewsController::class, 'get']);
+    
+    // Categorías públicas
+    $group->get('/categories', [NewsController::class, 'listCategories']);
 });
 
 // =============================================================================
@@ -76,6 +79,12 @@ $app->group('/api/admin', function (RouteCollectorProxy $group) {
     // Settings
     $group->get('/settings', [SettingsController::class, 'get']);
     $group->put('/settings', [SettingsController::class, 'update']);
+    
+    // CRUD Categorías
+    $group->get('/categories', [NewsController::class, 'listAllCategories']);
+    $group->post('/categories', [NewsController::class, 'createCategory']);
+    $group->put('/categories/{id}', [NewsController::class, 'updateCategory']);
+    $group->delete('/categories/{id}', [NewsController::class, 'deleteCategory']);
 });
 
 // =============================================================================
