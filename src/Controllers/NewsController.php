@@ -136,6 +136,37 @@ class NewsController
     // =========================================================================
 
     /**
+     * GET /api/admin/news/{id}
+     * Obtiene el detalle de una noticia por ID (admin - sin filtro is_active)
+     */
+    public function getById(Request $request, Response $response, array $args): Response
+    {
+        $id = (int) $args['id'];
+
+        $stmt = $this->db->prepare("SELECT * FROM news_articles WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+        $article = $stmt->fetch();
+
+        if (!$article) {
+            return $this->json($response, [
+                'success' => false,
+                'error' => 'Not Found',
+                'message' => 'Artículo no encontrado'
+            ], 404);
+        }
+
+        // Cargar bloques de contenido
+        $article['is_active'] = (bool) $article['is_active'];
+        $article['is_pinned'] = (bool) $article['is_pinned'];
+        $article['content_blocks'] = $this->getContentBlocks((int) $article['id']);
+
+        return $this->json($response, [
+            'success' => true,
+            'data' => $article
+        ]);
+    }
+
+    /**
      * GET /api/admin/news
      * Lista TODAS las noticias (activas e inactivas)
      */

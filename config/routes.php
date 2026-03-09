@@ -67,6 +67,7 @@ $app->group('/api/admin', function (RouteCollectorProxy $group) {
     
     // CRUD Noticias
     $group->get('/news', [NewsController::class, 'listAll']);
+    $group->get('/news/{id}', [NewsController::class, 'getById']);
     $group->post('/news', [NewsController::class, 'create']);
     $group->put('/news/{id}', [NewsController::class, 'update']);
     $group->delete('/news/{id}', [NewsController::class, 'delete']);
