@@ -53,33 +53,57 @@ class NewsController
         if (!$settings['section_enabled']) {
             return $this->json($response, [
                 'success' => true,
-                'data' => [
-                    'section_enabled' => false,
-                    'articles' => [],
-                    'total' => 0
-                ]
+                'data' => ['section_enabled' => false, 'articles' => [], 'total' => 0]
             ]);
         }
 
-        $limit = $settings['max_items_home'];
-        
-        // Obtener noticias activas ordenadas por destacadas y fecha
-        $stmt = $this->db->prepare("
-            SELECT 
-                id, type, title, slug, excerpt, 
-                featured_image, video_url, is_pinned, 
-                published_at, created_at
-            FROM news_articles
-            WHERE is_active = 1 
-              AND (published_at IS NULL OR published_at <= NOW())
+        $params = $request->getQueryParams();
+        $page = max(1, (int) ($params['page'] ?? 1));
+        $limit = min(50, max(1, (int) ($params['limit'] ?? $settings['max_items_home'])));
+        $search = trim($params['search'] ?? '');
+        $categoryId = (int) ($params['category'] ?? 0);
+        $offset = ($page - 1) * $limit;
+
+        // Construir WHERE dinámico
+        $conditions = ['is_active = 1', '(published_at IS NULL OR published_at <= NOW())'];
+        $queryParams = [];
+
+        if ($search) {
+            $conditions[] = 'title LIKE :search';
+            $queryParams['search'] = "%{$search}%";
+        }
+
+        if ($categoryId > 0) {
+            $conditions[] = 'id IN (SELECT news_article_id FROM news_category WHERE category_id = :category_id)';
+            $queryParams['category_id'] = $categoryId;
+        }
+
+        $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+        // Total
+        $countSql = "SELECT COUNT(*) FROM news_articles $whereClause";
+        $countStmt = $this->db->prepare($countSql);
+        $countStmt->execute($queryParams);
+        $total = (int) $countStmt->fetchColumn();
+
+        // Artículos
+        $sql = "
+            SELECT id, type, title, slug, excerpt, featured_image, video_url, is_pinned, published_at, created_at
+            FROM news_articles 
+            $whereClause
             ORDER BY is_pinned DESC, published_at DESC, created_at DESC
-            LIMIT :limit
-        ");
+            LIMIT :limit OFFSET :offset
+        ";
+        
+        $stmt = $this->db->prepare($sql);
+        foreach ($queryParams as $key => $value) {
+            $stmt->bindValue(":$key", $value);
+        }
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         $articles = $stmt->fetchAll();
 
-        // Cargar bloques de contenido para cada artículo
         foreach ($articles as &$article) {
             $article['is_pinned'] = (bool) $article['is_pinned'];
             $article['content_blocks'] = $this->getContentBlocks((int) $article['id']);
@@ -91,7 +115,13 @@ class NewsController
             'data' => [
                 'section_enabled' => true,
                 'articles' => $articles,
-                'total' => count($articles)
+                'total' => $total,
+                'pagination' => [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => $total,
+                    'pages' => (int) ceil($total / $limit)
+                ]
             ]
         ]);
     }
@@ -187,16 +217,31 @@ class NewsController
         $page = max(1, (int) ($params['page'] ?? 1));
         $limit = min(100, max(1, (int) ($params['limit'] ?? 20)));
         $type = $params['type'] ?? null;
+        $status = $params['status'] ?? null; // 'active', 'draft', o null para todos
+        $search = trim($params['search'] ?? '');
         $offset = ($page - 1) * $limit;
 
         // Construir WHERE dinámico
-        $whereClause = '';
+        $conditions = [];
         $queryParams = [];
         
         if ($type && in_array($type, ['news', 'update'])) {
-            $whereClause = 'WHERE type = :type';
+            $conditions[] = 'type = :type';
             $queryParams['type'] = $type;
         }
+
+        if ($status === 'active') {
+            $conditions[] = 'is_active = 1';
+        } elseif ($status === 'draft') {
+            $conditions[] = 'is_active = 0';
+        }
+
+        if ($search) {
+            $conditions[] = 'title LIKE :search';
+            $queryParams['search'] = "%{$search}%";
+        }
+
+        $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
         // Total de registros
         $countStmt = $this->db->prepare("SELECT COUNT(*) FROM news_articles $whereClause");
