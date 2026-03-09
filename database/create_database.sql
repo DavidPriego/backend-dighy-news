@@ -123,9 +123,7 @@ CREATE TABLE content (
 -- Noticia 1: Tipo news
 INSERT INTO news (uuid, type, slug, author_name, is_published, published_at, thumbnail_url) VALUES
     (UUID(), 'news', 'dighy-lanza-nuevo-proyecto-hidrogeno', 'Alfredo González', TRUE, NOW(), 
-     'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800',
-     'Dighy lanza nuevo proyecto de hidrógeno verde',
-     'Dighy anuncia su nuevo proyecto de producción de hidrógeno verde en la provincia de Almería.');
+     'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=800');
 
 SET @news_1_id = LAST_INSERT_ID();
 
@@ -205,8 +203,6 @@ SELECT
     n.is_featured,
     n.is_published,
     n.published_at,
-    n.meta_title,
-    n.meta_description,
     n.created_at,
     n.updated_at,
     -- Primer título del contenido
