@@ -437,7 +437,7 @@ class NewsController
     private function getContentBlocks(int $articleId): array
     {
         $stmt = $this->db->prepare("
-            SELECT id, column_position, block_type, content, meta_data, sort_order
+            SELECT id, column_position, block_type, content, metadata, sort_order
             FROM news_content_blocks 
             WHERE article_id = :article_id 
             ORDER BY sort_order ASC
@@ -447,8 +447,8 @@ class NewsController
         
         // Decodificar meta_data JSON
         foreach ($blocks as &$block) {
-            if ($block['meta_data']) {
-                $block['meta_data'] = json_decode($block['meta_data'], true);
+            if ($block['metadata']) {
+                $block['meta_data'] = json_decode($block['metadata'], true);
             }
         }
         
@@ -462,9 +462,9 @@ class NewsController
     {
         $stmt = $this->db->prepare("
             INSERT INTO news_content_blocks 
-            (article_id, column_position, block_type, content, meta_data, sort_order)
+            (article_id, column_position, block_type, content, metadata, sort_order)
             VALUES 
-            (:article_id, :column_position, :block_type, :content, :meta_data, :sort_order)
+            (:article_id, :column_position, :block_type, :content, :metadata, :sort_order)
         ");
 
         foreach ($blocks as $index => $block) {
@@ -473,7 +473,7 @@ class NewsController
                 'column_position' => $block['column_position'] ?? 'main',
                 'block_type' => $block['block_type'] ?? 'text',
                 'content' => $block['content'] ?? '',
-                'meta_data' => isset($block['meta_data']) ? json_encode($block['meta_data']) : null,
+                'metadata' => isset($block['metadata']) ? json_encode($block['metadata']) : null,
                 'sort_order' => $block['sort_order'] ?? $index
             ]);
         }
