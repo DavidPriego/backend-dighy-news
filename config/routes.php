@@ -21,6 +21,7 @@
 
 use Dighy\News\Controllers\NewsController;
 use Dighy\News\Controllers\SettingsController;
+use Dighy\News\Controllers\UploadController;
 use Dighy\News\Middleware\CorsMiddleware;
 use Slim\Routing\RouteCollectorProxy;
 
@@ -75,3 +76,9 @@ $app->group('/api/admin', function (RouteCollectorProxy $group) {
     $group->get('/settings', [SettingsController::class, 'get']);
     $group->put('/settings', [SettingsController::class, 'update']);
 });
+
+// =============================================================================
+// SUBIDA DE ARCHIVOS
+// =============================================================================
+
+$app->post('/api/upload/image', [UploadController::class, 'upload']);

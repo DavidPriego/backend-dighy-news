@@ -309,7 +309,12 @@ class NewsController
             foreach ($allowedFields as $field) {
                 if (array_key_exists($field, $data)) {
                     $updates[] = "{$field} = :{$field}";
-                    $params[$field] = $data[$field];
+                    // Convertir booleanos a entero para MySQL
+                    if (in_array($field, ['is_active', 'is_pinned'])) {
+                        $params[$field] = (int) $data[$field];
+                    } else {
+                        $params[$field] = $data[$field];
+                    }
                 }
             }
 
