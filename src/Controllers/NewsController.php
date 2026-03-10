@@ -69,7 +69,9 @@ class NewsController
         $queryParams = [];
 
         if ($search) {
-            $conditions[] = 'title LIKE :search';
+            $conditions[] = '(title LIKE :search OR excerpt LIKE :search OR id IN (
+                SELECT news_article_id FROM news_content_blocks WHERE content LIKE :search
+            ))';
             $queryParams['search'] = "%{$search}%";
         }
 
@@ -237,7 +239,9 @@ class NewsController
         }
 
         if ($search) {
-            $conditions[] = 'title LIKE :search';
+            $conditions[] = '(title LIKE :search OR excerpt LIKE :search OR id IN (
+                SELECT news_article_id FROM news_content_blocks WHERE content LIKE :search
+            ))';
             $queryParams['search'] = "%{$search}%";
         }
 
