@@ -69,10 +69,13 @@ class NewsController
         $queryParams = [];
 
         if ($search) {
-            $conditions[] = '(title LIKE :search OR excerpt LIKE :search OR id IN (
-                SELECT news_article_id FROM news_content_blocks WHERE content LIKE :search
+            $conditions[] = '(title LIKE :search1 OR excerpt LIKE :search2 OR id IN (
+                SELECT news_article_id FROM news_content_blocks WHERE content LIKE :search3
             ))';
-            $queryParams['search'] = "%{$search}%";
+            $searchPattern = "%{$search}%";
+            $queryParams['search1'] = $searchPattern;
+            $queryParams['search2'] = $searchPattern;
+            $queryParams['search3'] = $searchPattern;
         }
 
         if ($categoryId > 0) {
@@ -239,10 +242,13 @@ class NewsController
         }
 
         if ($search) {
-            $conditions[] = '(title LIKE :search OR excerpt LIKE :search OR id IN (
-                SELECT news_article_id FROM news_content_blocks WHERE content LIKE :search
+            $conditions[] = '(title LIKE :search1 OR excerpt LIKE :search2 OR id IN (
+                SELECT news_article_id FROM news_content_blocks WHERE content LIKE :search3
             ))';
-            $queryParams['search'] = "%{$search}%";
+            $searchPattern = "%{$search}%";
+            $queryParams['search1'] = $searchPattern;
+            $queryParams['search2'] = $searchPattern;
+            $queryParams['search3'] = $searchPattern;
         }
 
         $whereClause = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
