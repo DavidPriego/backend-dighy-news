@@ -31,9 +31,9 @@ class NewsController
 {
     private PDO $db;
 
-    public function __construct()
+    public function __construct(?PDO $pdo = null)
     {
-        $this->db = Connection::getInstance();
+        $this->db = $pdo ?? Connection::getInstance();
     }
 
     // =========================================================================

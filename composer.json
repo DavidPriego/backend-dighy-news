@@ -10,10 +10,22 @@
         "php-di/php-di": "^7.0",
         "vlucas/phpdotenv": "^5.5"
     },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
     "autoload": {
         "psr-4": {
             "Dighy\\News\\": "src/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Dighy\\News\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-html coverage"
     },
     "config": {
         "optimize-autoloader": true

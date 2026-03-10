@@ -41,14 +41,14 @@ CREATE TABLE category (
 ) ENGINE=InnoDB;
 
 -- Insertar categorías base
-INSERT INTO category (name, slug, description, color) VALUES
-    ('Tecnología', 'tecnologia', 'Noticias sobre tecnología e innovación', '#3B82F6'),
-    ('Hidrógeno Verde', 'hidrogeno-verde', 'Avances en hidrógeno verde', '#22C55E'),
-    ('Energías Renovables', 'energias-renovables', 'Noticias sobre energías limpias', '#EAB308'),
-    ('Proyectos', 'proyectos', 'Actualizaciones de proyectos Dighy', '#8B5CF6'),
-    ('Normativa', 'normativa', 'Cambios en legislación y normativas', '#EF4444'),
-    ('Eventos', 'eventos', 'Conferencias, ferias y eventos', '#EC4899'),
-    ('Empresa', 'empresa', 'Noticias corporativas', '#06B6D4');
+INSERT INTO category (name, slug, description) VALUES
+    ('Tecnología', 'tecnologia', 'Noticias sobre tecnología e innovación'),
+    ('Hidrógeno Verde', 'hidrogeno-verde', 'Avances en hidrógeno verde'),
+    ('Energías Renovables', 'energias-renovables', 'Noticias sobre energías limpias'),
+    ('Proyectos', 'proyectos', 'Actualizaciones de proyectos Dighy'),
+    ('Normativa', 'normativa', 'Cambios en legislación y normativas'),
+    ('Eventos', 'eventos', 'Conferencias, ferias y eventos'),
+    ('Empresa', 'empresa', 'Noticias corporativas');
 
 -- ============================================
 -- TABLA: news_articles
